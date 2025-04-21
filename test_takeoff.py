@@ -1,7 +1,3 @@
-
-#uint16 VEHICLE_CMD_NAV_TAKEOFF = 22			# Takeoff from ground / hand |Minimum pitch (if airspeed sensor present), desired pitch without sensor| Empty| Empty| Yaw angle (if magnetometer present), ignored without magnetometer| Latitude| Longitude| Altitude|
-
-
 def takeoff(self, altitude: float, yaw: float = 0.0) -> bool:
         """
         Command the vehicle to take off.
@@ -20,3 +16,6 @@ def takeoff(self, altitude: float, yaw: float = 0.0) -> bool:
         self.get_logger().info(f'Takeoff command sent: altitude={altitude}m, yaw={yaw}rad')
         time.sleep(0.5)
         return True
+
+
+#uint16 VEHICLE_CMD_NAV_TAKEOFF = 22			# Takeoff from ground / hand |Minimum pitch (if airspeed sensor present), desired pitch without sensor| Empty| Empty| Yaw angle (if magnetometer present), ignored without magnetometer| Latitude| Longitude| Altitude|
