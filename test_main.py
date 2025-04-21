@@ -172,8 +172,8 @@ class OffboardControl(Node):
         self.enable_offboard_mode()
         time.sleep(1)
 
-        # 5. Fly forward 20 m
-        self.fly_forward(20.0)
+        # 5. Fly forward 2 m
+        self.fly_forward(2.0)
         time.sleep(10)
 
         # 6. Land
