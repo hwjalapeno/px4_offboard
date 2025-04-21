@@ -50,9 +50,6 @@ class OffboardControl(Node):
         self.create_subscription(VehicleGlobalPosition,
                                  '/fmu/out/vehicle_global_position',
                                  self._global_pos_cb, qos)
-        self.create_subscription(String,
-                                 '/dexi/offboard_manager',
-                                 self._launch_mission_cb, qos)
 
         # State
         self.x = self.y = self.z = 0.0
@@ -148,12 +145,6 @@ class OffboardControl(Node):
 
     def _global_pos_cb(self, msg: VehicleGlobalPosition):
         self.alt = msg.alt
-
-    def _launch_mission_cb(self, msg: String):
-        if msg.data == "launch":
-            threading.Thread(target=self._mission_sequence).start()
-        else:
-            self.get_logger().info(f'Unknown mission command: {msg.data}')
 
     def _mission_sequence(self):
         # 1. Arm
