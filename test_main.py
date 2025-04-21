@@ -68,12 +68,27 @@ class OffboardControl(Node):
             self._publish_offboard_control_mode()
             time.sleep(0.1)
 
-    def _publish_offboard_control_mode(self):
+    def publish_offboard_control_heartbeat_signal(self) -> None:
+        """
+        Publish OffboardControlMode to let PX4 know you want to control it.
+        Must publish at >= 2Hz or PX4 will reject.
+        """
         msg = OffboardControlMode()
-        msg.timestamp = self.get_timestamp()
-        msg.position = True
-        # velocity/accel/attitude/body_rate left false
-        self.offboard_control_pub.publish(msg)
+        msg.timestamp = int(self.get_clock().now().nanoseconds / 1000)
+
+        # Set each flag based on the bitmask
+        msg.position = bool(self.control_mode & ControlModes.POSITION)
+        msg.velocity = bool(self.control_mode & ControlModes.VELOCITY)
+
+        # TODO: Add support for other control modes
+        msg.acceleration = False
+        msg.attitude = False
+        msg.body_rate = False
+        # msg.acceleration = bool(self.control_mode & ControlModes.ACCELERATION)
+        # msg.attitude = bool(self.control_mode & ControlModes.ATTITUDE)
+        # msg.body_rate = bool(self.control_mode & ControlModes.BODY_RATE)
+
+        self.offboard_control_mode_publisher.publish(msg)
 
     def arm(self):
         msg = VehicleCommand()
