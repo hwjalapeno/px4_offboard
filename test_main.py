@@ -50,6 +50,9 @@ class OffboardControl(Node):
         self.create_subscription(VehicleGlobalPosition,
                                  '/fmu/out/vehicle_global_position',
                                  self._global_pos_cb, qos)
+        self.create_subscription(String,
+                                 '/dexi/offboard_manager',
+                                 self._launch_mission_cb, qos)
 
         # State
         self.x = self.y = self.z = 0.0
@@ -57,7 +60,7 @@ class OffboardControl(Node):
         self.alt = 0.0  # MSL altitude from global pos
         self.control_mode = ControlModes.POSITION
 
-        # Heartbeat thread (10 Hz)
+        # Heartbeat thread (10 Hz)
         self._hb_run = True
         hb = threading.Thread(target=self._heartbeat_loop)
         hb.daemon = True
@@ -68,27 +71,12 @@ class OffboardControl(Node):
             self._publish_offboard_control_mode()
             time.sleep(0.1)
 
-    def publish_offboard_control_heartbeat_signal(self) -> None:
-        """
-        Publish OffboardControlMode to let PX4 know you want to control it.
-        Must publish at >= 2Hz or PX4 will reject.
-        """
+    def _publish_offboard_control_mode(self):
         msg = OffboardControlMode()
-        msg.timestamp = int(self.get_clock().now().nanoseconds / 1000)
-
-        # Set each flag based on the bitmask
-        msg.position = bool(self.control_mode & ControlModes.POSITION)
-        msg.velocity = bool(self.control_mode & ControlModes.VELOCITY)
-
-        # TODO: Add support for other control modes
-        msg.acceleration = False
-        msg.attitude = False
-        msg.body_rate = False
-        # msg.acceleration = bool(self.control_mode & ControlModes.ACCELERATION)
-        # msg.attitude = bool(self.control_mode & ControlModes.ATTITUDE)
-        # msg.body_rate = bool(self.control_mode & ControlModes.BODY_RATE)
-
-        self.offboard_control_mode_publisher.publish(msg)
+        msg.timestamp = self.get_timestamp()
+        msg.position = True
+        # velocity/accel/attitude/body_rate left false
+        self.offboard_control_pub.publish(msg)
 
     def arm(self):
         msg = VehicleCommand()
@@ -103,7 +91,7 @@ class OffboardControl(Node):
         msg.command = VehicleCommand.VEHICLE_CMD_NAV_TAKEOFF
         msg.param7 = float(self.alt + climb_alt)
         self._send_vehicle_command(msg)
-        self.get_logger().info(f'Takeoff to +{climb_alt} m sent')
+        self.get_logger().info(f'Takeoff to +{climb_alt} m sent')
 
     def loiter(self, altitude):
         # DO_CHANGE_ALTITUDE = 186
@@ -111,7 +99,7 @@ class OffboardControl(Node):
         msg.command = VehicleCommand.VEHICLE_CMD_DO_CHANGE_ALTITUDE
         msg.param1 = float(altitude)
         self._send_vehicle_command(msg)
-        self.get_logger().info(f'Loiter at {altitude} m sent')
+        self.get_logger().info(f'Loiter at {altitude} m sent')
 
     def enable_offboard_mode(self):
         msg = VehicleCommand()
@@ -126,7 +114,7 @@ class OffboardControl(Node):
         new_x = self.x + distance * math.cos(self.heading)
         new_y = self.y + distance * math.sin(self.heading)
         self._send_position_setpoint(new_x, new_y, self.z)
-        self.get_logger().info(f'Flying forward {distance} m')
+        self.get_logger().info(f'Flying forward {distance} m')
 
     def land(self):
         msg = VehicleCommand()
@@ -161,16 +149,22 @@ class OffboardControl(Node):
     def _global_pos_cb(self, msg: VehicleGlobalPosition):
         self.alt = msg.alt
 
+    def _launch_mission_cb(self, msg: String):
+        if msg.data == "launch":
+            threading.Thread(target=self._mission_sequence).start()
+        else:
+            self.get_logger().info(f'Unknown mission command: {msg.data}')
+
     def _mission_sequence(self):
         # 1. Arm
         self.arm()
         time.sleep(1)
 
-        # 2. Take off +2 m
+        # 2. Take off +2 m
         self.takeoff(2.0)
         time.sleep(8)
 
-        # 3. Loiter at 2 m
+        # 3. Loiter at 2 m
         self.loiter(2.0)
         time.sleep(5)
 
@@ -178,8 +172,8 @@ class OffboardControl(Node):
         self.enable_offboard_mode()
         time.sleep(1)
 
-        # 5. Fly forward 2 m
-        self.fly_forward(2.0)
+        # 5. Fly forward 20 m
+        self.fly_forward(20.0)
         time.sleep(10)
 
         # 6. Land
